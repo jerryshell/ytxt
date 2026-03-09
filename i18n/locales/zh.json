@@ -1,0 +1,48 @@
+{
+  "title": "YouTube 字幕提取",
+  "description": "粘贴 YouTube 链接或 VideoId，快速提取字幕，并支持 GET API。",
+  "status": {
+    "pending": "请求中",
+    "success": "已返回",
+    "idle": "待输入"
+  },
+  "error": {
+    "emptyInput": "请输入 YouTube 链接或 VideoId。",
+    "fetchFailed": "获取字幕失败，请稍后重试。"
+  },
+  "button": {
+    "useTestVideo": "使用测试视频",
+    "extract": "提取字幕",
+    "viewApi": "查看 API",
+    "copyAsCurl": "复制为 cURL"
+  },
+  "placeholder": {
+    "source": "YouTube 链接或 VideoId",
+    "lang": "语言（可选）"
+  },
+  "label": {
+    "source": "来源",
+    "language": "语言",
+    "apiPreview": "API 预览",
+    "segments": "段字幕",
+    "duration": "时长",
+    "status": "状态",
+    "plainText": "纯文本",
+    "input": "input",
+    "lang": "lang"
+  },
+  "card": {
+    "transcriptFull": "字幕全文",
+    "apiCall": "API 调用",
+    "timeline": "字幕时间轴"
+  },
+  "alert": {
+    "fetchFailed": "获取失败",
+    "availableLangs": "可用字幕语言"
+  },
+  "hint": "按字幕段落换行展示，支持直接选中复制。",
+  "toast": {
+    "copied": "已复制到剪贴板",
+    "copyFailed": "复制失败"
+  }
+}

@@ -1,0 +1,8 @@
+- 简洁性
+- 可读性
+- 禁止过度抽象
+- 使用 Bun
+- https://nuxt.com/docs/4.x/directory-structure
+- https://nuxt.com/docs/4.x/guide/concepts/auto-imports
+- https://ui.nuxt.com/docs/components
+- https://i18n.nuxtjs.org/docs/getting-started/usage

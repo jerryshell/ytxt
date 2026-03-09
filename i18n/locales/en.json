@@ -1,0 +1,48 @@
+{
+  "title": "YouTube Transcript Extractor",
+  "description": "Paste a YouTube URL or VideoId to quickly extract subtitles, with GET API support.",
+  "status": {
+    "pending": "Loading",
+    "success": "Loaded",
+    "idle": "Waiting"
+  },
+  "error": {
+    "emptyInput": "Please enter a YouTube URL or VideoId.",
+    "fetchFailed": "Failed to fetch transcript, please try again later."
+  },
+  "button": {
+    "useTestVideo": "Use Test Video",
+    "extract": "Extract",
+    "viewApi": "View API",
+    "copyAsCurl": "Copy as cURL"
+  },
+  "placeholder": {
+    "source": "YouTube URL or VideoId",
+    "lang": "Language (optional)"
+  },
+  "label": {
+    "source": "Source",
+    "language": "Language",
+    "apiPreview": "API Preview",
+    "segments": "segments",
+    "duration": "Duration",
+    "status": "Status",
+    "plainText": "Plain Text",
+    "input": "input",
+    "lang": "lang"
+  },
+  "card": {
+    "transcriptFull": "Transcript",
+    "apiCall": "API Call",
+    "timeline": "Timeline"
+  },
+  "alert": {
+    "fetchFailed": "Fetch Failed",
+    "availableLangs": "Available Languages"
+  },
+  "hint": "Display by transcript segments, supports direct copy.",
+  "toast": {
+    "copied": "Copied to clipboard",
+    "copyFailed": "Failed to copy"
+  }
+}
