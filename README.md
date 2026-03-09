@@ -4,6 +4,8 @@
 
 YouTube 字幕提取工具。
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jerryshell/ytxt)
+
 ## 功能
 
 - 提取 YouTube 视频字幕
