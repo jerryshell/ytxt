@@ -1,4 +1,10 @@
 {
   "name": "ytxt",
   "compatibility_date": "2026-03-09",
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    },
+  },
 }
