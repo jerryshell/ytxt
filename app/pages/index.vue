@@ -4,164 +4,135 @@ const TEST_VIDEO_URL = "UF8uR6Z6KLc";
 const { locale, locales, setLocale } = useI18n();
 const toast = useToast();
 
-type TranscriptItem = {
-  text: string;
-  duration: number;
-  offset: number;
-  lang: string;
-};
-
-type TranscriptError = {
+type Segment = { text: string; duration: number; offset: number; lang: string };
+type ApiError = {
   statusMessage?: string;
   message?: string;
-  data?: {
-    statusMessage?: string;
-    message?: string;
-    availableLangs?: string[];
-  };
+  data?: { statusMessage?: string; message?: string; availableLangs?: string[] };
 };
 
-useSeoMeta({
-  title: $t("title"),
-  description: $t("description"),
-});
+useSeoMeta({ title: $t("title"), description: $t("description") });
 
-const videoIdOrUrl = ref("");
+const input = ref("");
 const lang = ref("en");
 const pending = ref(false);
-const errorMessage = ref("");
+const error = ref("");
 const availableLangs = ref<string[]>([]);
-const transcriptData = ref<TranscriptItem[] | null>(null);
+const transcript = ref<Segment[] | null>(null);
 
-const requestInput = computed(() => videoIdOrUrl.value.trim() || TEST_VIDEO_URL);
-const requestedLang = computed(() => lang.value.trim() || "auto");
+const segments = computed(() => transcript.value ?? []);
+const hasResult = computed(() => segments.value.length > 0);
 
-const transcriptItems = computed(() => transcriptData.value ?? []);
-const hasTranscript = computed(() => transcriptItems.value.length > 0);
-const segmentCount = computed(() => transcriptItems.value.length);
+const apiInput = computed(() => input.value.trim() || TEST_VIDEO_URL);
+const apiLang = computed(() => lang.value.trim() || "auto");
 
-const transcriptText = computed(() =>
-  transcriptItems.value
-    .map((item) => item.text.trim())
+const plainText = computed(() =>
+  segments.value
+    .map((s) => s.text.trim())
     .filter(Boolean)
     .join("\n"),
 );
 
-const transcriptLang = computed(() => transcriptItems.value[0]?.lang ?? requestedLang.value);
-
-const durationSeconds = computed(() => {
-  const lastSegment = transcriptItems.value.at(-1);
-  if (!lastSegment) return 0;
-  return Number((lastSegment.offset + lastSegment.duration).toFixed(2));
+const totalDuration = computed(() => {
+  const last = segments.value.at(-1);
+  return last ? Number((last.offset + last.duration).toFixed(2)) : 0;
 });
 
-const durationLabel = computed(() =>
-  hasTranscript.value ? formatTimestamp(durationSeconds.value) : "--:--",
-);
+const durationLabel = computed(() => (hasResult.value ? formatTime(totalDuration.value) : "--:--"));
 
 const statusLabel = computed(() => {
   if (pending.value) return $t("status.pending");
-  if (hasTranscript.value) return $t("status.success");
+  if (hasResult.value) return $t("status.success");
   return $t("status.idle");
 });
 
-const apiQueryParams = computed(() => {
-  const params = new URLSearchParams({ input: requestInput.value });
+const apiQuery = computed(() => {
+  const params = new URLSearchParams({ input: apiInput.value });
   if (lang.value.trim()) params.set("lang", lang.value.trim());
   return params.toString();
 });
 
-const apiPreview = computed(() => `/api/transcript?${apiQueryParams.value}`);
 const curlCommand = computed(
-  () => `curl "${window.location.origin}/api/transcript?${apiQueryParams.value}"`,
+  () => `curl "${window.location.origin}/api/transcript?${apiQuery.value}"`,
 );
 
-function formatTimestamp(seconds: number) {
-  const totalSeconds = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const remainSeconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return [hours, minutes, remainSeconds].map((item) => String(item).padStart(2, "0")).join(":");
-  }
-
-  return [minutes, remainSeconds].map((item) => String(item).padStart(2, "0")).join(":");
-}
-
-function readErrorMessage(error: unknown) {
-  const fallback = $t("error.fetchFailed");
-  const candidate = error as TranscriptError | null;
-
-  availableLangs.value = Array.isArray(candidate?.data?.availableLangs)
-    ? candidate.data.availableLangs
-    : [];
-
-  return (
-    candidate?.data?.statusMessage ||
-    candidate?.data?.message ||
-    candidate?.statusMessage ||
-    candidate?.message ||
-    fallback
-  );
-}
-
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.add({ title: $t("toast.copied"), color: "success", icon: "i-lucide-check" });
-  } catch {
-    toast.add({ title: $t("toast.copyFailed"), color: "error", icon: "i-lucide-x" });
-  }
-}
-
 async function fetchTranscript() {
-  const input = videoIdOrUrl.value.trim();
-  const requestedLangValue = lang.value.trim();
+  const inputValue = input.value.trim();
+  const langValue = lang.value.trim();
 
-  if (!input) {
-    errorMessage.value = $t("error.emptyInput");
-    transcriptData.value = null;
+  if (!inputValue) {
+    error.value = $t("error.emptyInput");
+    transcript.value = null;
     availableLangs.value = [];
     return;
   }
 
   pending.value = true;
-  errorMessage.value = "";
+  error.value = "";
   availableLangs.value = [];
 
   try {
-    transcriptData.value = await $fetch<TranscriptItem[]>("/api/transcript", {
-      query: { input, ...(requestedLangValue ? { lang: requestedLangValue } : {}) },
+    transcript.value = await $fetch<Segment[]>("/api/transcript", {
+      query: { input: inputValue, ...(langValue ? { lang: langValue } : {}) },
     });
-  } catch (error) {
-    transcriptData.value = null;
-    errorMessage.value = readErrorMessage(error);
+  } catch (e) {
+    transcript.value = null;
+    error.value = extractError(e);
   } finally {
     pending.value = false;
   }
 }
 
 function useTestVideo() {
-  videoIdOrUrl.value = TEST_VIDEO_URL;
+  input.value = TEST_VIDEO_URL;
   lang.value = "en";
   fetchTranscript();
 }
 
+function copyText(text: string) {
+  navigator.clipboard.writeText(text).then(
+    () => toast.add({ title: $t("toast.copied"), color: "success", icon: "i-lucide-check" }),
+    () => toast.add({ title: $t("toast.copyFailed"), color: "error", icon: "i-lucide-x" }),
+  );
+}
+
 function copyTranscript() {
-  copyToClipboard(transcriptText.value);
+  copyText(plainText.value);
 }
 
 function copyTimeline() {
-  const timelineText = transcriptItems.value
-    .map((item) => `${formatTimestamp(item.offset)} ${item.text.trim()}`)
+  const timeline = segments.value
+    .map((s) => `${formatTime(s.offset)} ${s.text.trim()}`)
     .filter(Boolean)
     .join("\n");
-  copyToClipboard(timelineText);
+  copyText(timeline);
 }
 
-function copyAsCurl() {
-  copyToClipboard(curlCommand.value);
+function copyCurl() {
+  copyText(curlCommand.value);
+}
+
+function formatTime(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+
+  return h > 0
+    ? [h, m, s].map((n) => String(n).padStart(2, "0")).join(":")
+    : [m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+function extractError(e: unknown): string {
+  const err = e as ApiError | null;
+  availableLangs.value = err?.data?.availableLangs ?? [];
+  return (
+    err?.data?.statusMessage ||
+    err?.data?.message ||
+    err?.statusMessage ||
+    err?.message ||
+    $t("error.fetchFailed")
+  );
 }
 </script>
 
@@ -179,14 +150,14 @@ function copyAsCurl() {
         />
         <div class="flex gap-2">
           <UButton
-            v-for="lang in locales"
-            :key="lang.code"
-            :color="lang.code === locale ? 'primary' : 'neutral'"
+            v-for="l in locales"
+            :key="l.code"
+            :color="l.code === locale ? 'primary' : 'neutral'"
             size="sm"
             variant="ghost"
-            @click="setLocale(lang.code)"
+            @click="setLocale(l.code)"
           >
-            {{ lang.name }}
+            {{ l.name }}
           </UButton>
         </div>
         <UColorModeButton color="neutral" variant="ghost" />
@@ -210,7 +181,7 @@ function copyAsCurl() {
 
         <form class="w-full space-y-4" @submit.prevent="fetchTranscript">
           <UInput
-            v-model="videoIdOrUrl"
+            v-model="input"
             color="neutral"
             icon="i-lucide-search"
             :placeholder="$t('placeholder.source')"
@@ -252,18 +223,24 @@ function copyAsCurl() {
                 {{ $t("button.useTestVideo") }}
               </UButton>
 
-              <UButton color="neutral" size="lg" variant="ghost" :href="apiPreview" target="_blank">
+              <UButton
+                color="neutral"
+                size="lg"
+                variant="ghost"
+                :href="`/api/transcript?${apiQuery}`"
+                target="_blank"
+              >
                 {{ $t("button.viewApi") }}
               </UButton>
             </div>
           </div>
 
           <UAlert
-            v-if="errorMessage"
+            v-if="error"
             color="error"
             variant="soft"
             :title="$t('alert.fetchFailed')"
-            :description="errorMessage"
+            :description="error"
           />
 
           <UAlert
@@ -276,14 +253,14 @@ function copyAsCurl() {
         </form>
       </section>
 
-      <section v-if="hasTranscript" class="mx-auto w-full max-w-5xl space-y-4 pb-8">
+      <section v-if="hasResult" class="mx-auto w-full max-w-5xl space-y-4 pb-8">
         <div class="flex flex-wrap gap-2">
           <UBadge color="neutral" variant="soft">{{ $t("label.status") }} {{ statusLabel }}</UBadge>
           <UBadge color="neutral" variant="soft"
-            >{{ segmentCount }} {{ $t("label.segments") }}</UBadge
+            >{{ segments.length }} {{ $t("label.segments") }}</UBadge
           >
           <UBadge color="neutral" variant="soft">{{ durationLabel }}</UBadge>
-          <UBadge color="neutral" variant="soft">{{ transcriptLang }}</UBadge>
+          <UBadge color="neutral" variant="soft">{{ segments[0]?.lang ?? apiLang }}</UBadge>
         </div>
 
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -298,7 +275,7 @@ function copyAsCurl() {
                   <h2 class="text-base font-semibold text-highlighted">
                     {{ $t("card.transcriptFull") }}
                   </h2>
-                  <p class="truncate text-sm text-muted">{{ videoIdOrUrl }}</p>
+                  <p class="truncate text-sm text-muted">{{ input }}</p>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -321,7 +298,7 @@ function copyAsCurl() {
               <p class="text-xs leading-5 text-muted">{{ $t("hint") }}</p>
 
               <UTextarea
-                :model-value="transcriptText"
+                :model-value="plainText"
                 color="neutral"
                 readonly
                 :rows="18"
@@ -348,7 +325,7 @@ function copyAsCurl() {
                     size="sm"
                     icon="i-lucide-terminal"
                     :label="$t('button.copyAsCurl')"
-                    @click="copyAsCurl"
+                    @click="copyCurl"
                   />
                 </div>
               </template>
@@ -360,12 +337,12 @@ function copyAsCurl() {
 
                 <div class="rounded-xl bg-default px-4 py-3 ring ring-default">
                   <p class="text-xs uppercase tracking-wide text-dimmed">{{ $t("label.input") }}</p>
-                  <p class="mt-1 break-all font-mono text-default">{{ requestInput }}</p>
+                  <p class="mt-1 break-all font-mono text-default">{{ apiInput }}</p>
                 </div>
 
                 <div class="rounded-xl bg-default px-4 py-3 ring ring-default">
                   <p class="text-xs uppercase tracking-wide text-dimmed">{{ $t("label.lang") }}</p>
-                  <p class="mt-1 font-mono text-default">{{ requestedLang }}</p>
+                  <p class="mt-1 font-mono text-default">{{ apiLang }}</p>
                 </div>
               </div>
             </UCard>
@@ -389,14 +366,14 @@ function copyAsCurl() {
 
               <ol class="max-h-112 divide-y divide-default overflow-auto">
                 <li
-                  v-for="item in transcriptItems"
-                  :key="`${item.offset}-${item.text}`"
+                  v-for="s in segments"
+                  :key="`${s.offset}-${s.text}`"
                   class="flex gap-4 py-3 text-sm"
                 >
                   <span class="w-16 shrink-0 font-mono text-dimmed">
-                    {{ formatTimestamp(item.offset) }}
+                    {{ formatTime(s.offset) }}
                   </span>
-                  <p class="leading-6 text-toned">{{ item.text }}</p>
+                  <p class="leading-6 text-toned">{{ s.text }}</p>
                 </li>
               </ol>
             </UCard>
