@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   if (!rawInput) {
     throw createError({
       statusCode: 400,
-      statusMessage: "请通过 input、videoId 或 url 传入 YouTube 视频信息。",
+      statusMessage: "Please provide YouTube video info via input, videoId, or url.",
     });
   }
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (!videoId) {
     throw createError({
       statusCode: 400,
-      statusMessage: "请输入有效的 YouTube VideoId 或 URL。",
+      statusMessage: "Please enter a valid YouTube VideoId or URL.",
     });
   }
 
@@ -84,13 +84,13 @@ function extractVideoId(input: string): string | null {
 
 function toHttpError(e: unknown) {
   if (e instanceof YoutubeTranscriptInvalidVideoIdError) {
-    return createError({ statusCode: 400, statusMessage: "无效的 YouTube VideoId 或 URL。" });
+    return createError({ statusCode: 400, statusMessage: "Invalid YouTube VideoId or URL." });
   }
 
   if (e instanceof YoutubeTranscriptVideoUnavailableError) {
     return createError({
       statusCode: 404,
-      statusMessage: "视频不可用，可能已被删除或限制访问。",
+      statusMessage: "Video unavailable, may have been deleted or access restricted.",
       data: { videoId: e.videoId },
     });
   }
@@ -98,7 +98,7 @@ function toHttpError(e: unknown) {
   if (e instanceof YoutubeTranscriptDisabledError) {
     return createError({
       statusCode: 403,
-      statusMessage: "该视频关闭了字幕功能。",
+      statusMessage: "Transcripts are disabled for this video.",
       data: { videoId: e.videoId },
     });
   }
@@ -106,7 +106,7 @@ function toHttpError(e: unknown) {
   if (e instanceof YoutubeTranscriptNotAvailableError) {
     return createError({
       statusCode: 404,
-      statusMessage: "该视频没有可用字幕。",
+      statusMessage: "No transcripts available for this video.",
       data: { videoId: e.videoId },
     });
   }
@@ -114,7 +114,7 @@ function toHttpError(e: unknown) {
   if (e instanceof YoutubeTranscriptNotAvailableLanguageError) {
     return createError({
       statusCode: 404,
-      statusMessage: "请求的字幕语言不可用。",
+      statusMessage: "Requested transcript language is not available.",
       data: { videoId: e.videoId, lang: e.lang, availableLangs: e.availableLangs },
     });
   }
@@ -122,13 +122,13 @@ function toHttpError(e: unknown) {
   if (e instanceof YoutubeTranscriptTooManyRequestError) {
     return createError({
       statusCode: 429,
-      statusMessage: "请求过于频繁，YouTube 暂时限制了当前 IP。",
+      statusMessage: "Too many requests, YouTube has temporarily blocked the current IP.",
     });
   }
 
   return createError({
     statusCode: 500,
-    statusMessage: e instanceof Error ? e.message : "获取字幕失败。",
+    statusMessage: e instanceof Error ? e.message : "Failed to fetch transcript.",
   });
 }
 
