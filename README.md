@@ -1,20 +1,12 @@
-[中文](./README.md) | [English](./README.en.md)
-
 # ytxt
 
-https://ytxt.jerryshell.workers.dev
+[中文](./README.md) | [English](./README.en.md)
 
-YouTube 字幕提取工具。
+无服务器 YouTube 字幕提取器附带简单 HTTP GET API
+
+立刻体验：https://ytxt.jerryshell.workers.dev
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jerryshell/ytxt)
-
-## 功能
-
-- 提取 YouTube 视频字幕
-- 支持指定语言
-- 提供 REST API
-- 多语言支持（中文/英文）
-- 暗色/亮色主题
 
 ## 使用方法
 
@@ -34,12 +26,6 @@ bun run dev
 
 ```bash
 bun run build
-```
-
-### 预览生产版本
-
-```bash
-bun run preview
 ```
 
 ## API

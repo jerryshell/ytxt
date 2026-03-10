@@ -1,20 +1,12 @@
-[中文](./README.md) | [English](./README.en.md)
-
 # ytxt
 
-https://ytxt.jerryshell.workers.dev
+[中文](./README.md) | [English](./README.en.md)
 
-YouTube transcript extractor.
+Serverless YouTube transcript extractor w/ easy HTTP GET API
+
+Use Now: https://ytxt.jerryshell.workers.dev
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jerryshell/ytxt)
-
-## Features
-
-- Extract transcripts from YouTube videos
-- Support specifying language
-- REST API available
-- Multi-language support (Chinese/English)
-- Dark/Light theme
 
 ## Usage
 
@@ -34,12 +26,6 @@ bun run dev
 
 ```bash
 bun run build
-```
-
-### Preview production build
-
-```bash
-bun run preview
 ```
 
 ## API
