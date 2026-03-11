@@ -272,6 +272,19 @@ function extractError(e: unknown): string {
   <main class="min-h-screen bg-default text-default">
     <UContainer class="flex min-h-screen flex-col px-4 py-8 sm:py-12">
       <header class="flex justify-end gap-3 pb-6">
+        <UDropdownMenu
+          :items="
+            locales.map((l) => ({
+              label: l.name,
+              value: l.code,
+              onSelect: () => setLocale(l.code),
+            }))
+          "
+        >
+          <UButton color="neutral" variant="ghost" size="sm" trailing-icon="i-lucide-chevron-down">
+            {{ locales.find((l) => l.code === locale)?.name }}
+          </UButton>
+        </UDropdownMenu>
         <UButton
           color="neutral"
           variant="ghost"
@@ -280,18 +293,6 @@ function extractError(e: unknown): string {
           href="https://github.com/jerryshell/ytxt"
           target="_blank"
         />
-        <div class="flex gap-2">
-          <UButton
-            v-for="l in locales"
-            :key="l.code"
-            :color="l.code === locale ? 'primary' : 'neutral'"
-            size="sm"
-            variant="ghost"
-            @click="setLocale(l.code)"
-          >
-            {{ l.name }}
-          </UButton>
-        </div>
         <UColorModeButton color="neutral" variant="ghost" />
       </header>
 
