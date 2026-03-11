@@ -4,7 +4,7 @@
 - 变量名符合意图
 - 函数排序，最高层放在最前面
 - 使用 Bun
-- 充分 Nuxt UI 组件，尽量减少自定义 CSS
+- 充分使用 Nuxt UI 组件，尽量减少自定义 CSS
 - 页面简洁，参考 Google 首页布局
 - https://nuxt.com/docs/4.x/directory-structure
 - https://nuxt.com/docs/4.x/guide/concepts/auto-imports
