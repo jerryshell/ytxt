@@ -183,7 +183,7 @@ async function fetchTranscript() {
 
 function useTestVideo() {
   input.value = TEST_VIDEO_URL;
-  lang.value = "auto";
+  lang.value = "en";
   fetchTranscript();
 }
 
