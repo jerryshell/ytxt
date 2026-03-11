@@ -18,6 +18,7 @@ type HistoryItem = {
   lang: string;
   title?: string;
   timestamp: number;
+  transcript: Segment[];
 };
 
 useSeoMeta({ title: t("title"), description: t("description") });
@@ -136,7 +137,9 @@ function clearHistory() {
 function loadHistoryItem(item: HistoryItem) {
   input.value = item.input;
   lang.value = item.lang;
-  fetchTranscript();
+  transcript.value = item.transcript;
+  error.value = "";
+  availableLangs.value = [];
 }
 
 function formatHistoryTime(timestamp: number): string {
@@ -172,7 +175,7 @@ async function fetchTranscript() {
     transcript.value = await $fetch<Segment[]>("/api/transcript", {
       query: { input: inputValue, ...(langValue ? { lang: langValue } : {}) },
     });
-    addToHistory({ input: inputValue, lang: langValue || "auto" });
+    addToHistory({ input: inputValue, lang: langValue || "auto", transcript: transcript.value });
   } catch (e) {
     transcript.value = null;
     error.value = extractError(e);
