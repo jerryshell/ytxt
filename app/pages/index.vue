@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const TEST_VIDEO_URL = "UF8uR6Z6KLc";
+const HISTORY_KEY = "ytxt_history";
+const MAX_HISTORY = 10;
 
 const { locale, locales, setLocale, t } = useI18n();
 const toast = useToast();
@@ -11,6 +13,13 @@ type ApiError = {
   data?: { statusMessage?: string; message?: string; availableLangs?: string[] };
 };
 
+type HistoryItem = {
+  input: string;
+  lang: string;
+  title?: string;
+  timestamp: number;
+};
+
 useSeoMeta({ title: t("title"), description: t("description") });
 
 const input = ref("");
@@ -19,6 +28,7 @@ const pending = ref(false);
 const error = ref("");
 const availableLangs = ref<string[]>([]);
 const transcript = ref<Segment[] | null>(null);
+const history = ref<HistoryItem[]>([]);
 
 const segments = computed(() => transcript.value ?? []);
 const hasResult = computed(() => segments.value.length > 0);
@@ -56,6 +66,69 @@ const curlCommand = computed(
   () => `curl "${window.location.origin}/api/transcript?${apiQuery.value}"`,
 );
 
+function loadHistory() {
+  if (import.meta.client) {
+    const saved = localStorage.getItem(HISTORY_KEY);
+    if (saved) {
+      try {
+        history.value = JSON.parse(saved);
+      } catch {
+        history.value = [];
+      }
+    }
+  }
+}
+
+function saveHistory() {
+  if (import.meta.client) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value));
+  }
+}
+
+function addToHistory(item: Omit<HistoryItem, "timestamp">) {
+  const existsIndex = history.value.findIndex(
+    (h) => h.input === item.input && h.lang === item.lang,
+  );
+  if (existsIndex !== -1) {
+    history.value.splice(existsIndex, 1);
+  }
+  history.value.unshift({ ...item, timestamp: Date.now() });
+  if (history.value.length > MAX_HISTORY) {
+    history.value = history.value.slice(0, MAX_HISTORY);
+  }
+  saveHistory();
+}
+
+function removeFromHistory(index: number) {
+  history.value.splice(index, 1);
+  saveHistory();
+}
+
+function clearHistory() {
+  history.value = [];
+  saveHistory();
+}
+
+function loadHistoryItem(item: HistoryItem) {
+  input.value = item.input;
+  lang.value = item.lang;
+  fetchTranscript();
+}
+
+function formatHistoryTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) {
+    return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  }
+  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+}
+
+onMounted(() => {
+  loadHistory();
+});
+
 async function fetchTranscript() {
   const inputValue = input.value.trim();
   const langValue = lang.value.trim();
@@ -75,6 +148,7 @@ async function fetchTranscript() {
     transcript.value = await $fetch<Segment[]>("/api/transcript", {
       query: { input: inputValue, ...(langValue ? { lang: langValue } : {}) },
     });
+    addToHistory({ input: inputValue, lang: langValue || "auto" });
   } catch (e) {
     transcript.value = null;
     error.value = extractError(e);
@@ -285,6 +359,51 @@ function extractError(e: unknown): string {
             :description="availableLangs.join(', ')"
           />
         </form>
+
+        <div v-if="history.length" class="w-full max-w-2xl">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-sm text-muted">{{ t("history.title") }}</span>
+            <UButton color="neutral" variant="ghost" size="xs" @click="clearHistory">
+              {{ t("history.clear") }}
+            </UButton>
+          </div>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="(item, index) in history"
+              :key="item.timestamp"
+              class="flex items-center gap-3 rounded-xl bg-default/50 px-4 py-3 ring ring-default transition-colors hover:bg-default"
+            >
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                class="flex-1 justify-start truncate"
+                @click="loadHistoryItem(item)"
+              >
+                <span class="truncate">{{ item.input }}</span>
+                <UBadge
+                  v-if="item.lang && item.lang !== 'auto'"
+                  color="neutral"
+                  variant="soft"
+                  size="xs"
+                  class="ml-2 shrink-0"
+                >
+                  {{ item.lang }}
+                </UBadge>
+              </UButton>
+              <span class="shrink-0 text-xs text-dimmed">
+                {{ formatHistoryTime(item.timestamp) }}
+              </span>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-x"
+                @click="removeFromHistory(index)"
+              />
+            </div>
+          </div>
+        </div>
       </section>
 
       <section v-if="hasResult" class="mx-auto w-full max-w-5xl space-y-4 pb-8">

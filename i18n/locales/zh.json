@@ -46,5 +46,9 @@
     "copied": "已复制到剪贴板",
     "copyFailed": "复制失败",
     "srtDownloaded": "SRT 文件已下载"
+  },
+  "history": {
+    "title": "历史记录",
+    "clear": "清空"
   }
 }
