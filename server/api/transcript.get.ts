@@ -46,10 +46,60 @@ export default defineEventHandler(async (event) => {
       ...(lang ? { lang } : {}),
       cache,
     });
-  } catch (e) {
-    throw toHttpError(e);
+  } catch (error) {
+    throw toHttpError(error);
   }
 });
+
+function toHttpError(error: unknown) {
+  if (error instanceof YoutubeTranscriptInvalidVideoIdError) {
+    return createError({ statusCode: 400, statusMessage: "Invalid YouTube VideoId or URL." });
+  }
+
+  if (error instanceof YoutubeTranscriptVideoUnavailableError) {
+    return createError({
+      statusCode: 404,
+      statusMessage: "Video unavailable, may have been deleted or access restricted.",
+      data: { videoId: error.videoId },
+    });
+  }
+
+  if (error instanceof YoutubeTranscriptDisabledError) {
+    return createError({
+      statusCode: 403,
+      statusMessage: "Transcripts are disabled for this video.",
+      data: { videoId: error.videoId },
+    });
+  }
+
+  if (error instanceof YoutubeTranscriptNotAvailableError) {
+    return createError({
+      statusCode: 404,
+      statusMessage: "No transcripts available for this video.",
+      data: { videoId: error.videoId },
+    });
+  }
+
+  if (error instanceof YoutubeTranscriptNotAvailableLanguageError) {
+    return createError({
+      statusCode: 404,
+      statusMessage: "Requested transcript language is not available.",
+      data: { videoId: error.videoId, lang: error.lang, availableLangs: error.availableLangs },
+    });
+  }
+
+  if (error instanceof YoutubeTranscriptTooManyRequestError) {
+    return createError({
+      statusCode: 429,
+      statusMessage: "Too many requests, YouTube has temporarily blocked the current IP.",
+    });
+  }
+
+  return createError({
+    statusCode: 500,
+    statusMessage: error instanceof Error ? error.message : "Failed to fetch transcript.",
+  });
+}
 
 function extractVideoId(input: string): string | null {
   const trimmed = input.trim();
@@ -82,63 +132,13 @@ function extractVideoId(input: string): string | null {
   return null;
 }
 
-function toHttpError(e: unknown) {
-  if (e instanceof YoutubeTranscriptInvalidVideoIdError) {
-    return createError({ statusCode: 400, statusMessage: "Invalid YouTube VideoId or URL." });
-  }
-
-  if (e instanceof YoutubeTranscriptVideoUnavailableError) {
-    return createError({
-      statusCode: 404,
-      statusMessage: "Video unavailable, may have been deleted or access restricted.",
-      data: { videoId: e.videoId },
-    });
-  }
-
-  if (e instanceof YoutubeTranscriptDisabledError) {
-    return createError({
-      statusCode: 403,
-      statusMessage: "Transcripts are disabled for this video.",
-      data: { videoId: e.videoId },
-    });
-  }
-
-  if (e instanceof YoutubeTranscriptNotAvailableError) {
-    return createError({
-      statusCode: 404,
-      statusMessage: "No transcripts available for this video.",
-      data: { videoId: e.videoId },
-    });
-  }
-
-  if (e instanceof YoutubeTranscriptNotAvailableLanguageError) {
-    return createError({
-      statusCode: 404,
-      statusMessage: "Requested transcript language is not available.",
-      data: { videoId: e.videoId, lang: e.lang, availableLangs: e.availableLangs },
-    });
-  }
-
-  if (e instanceof YoutubeTranscriptTooManyRequestError) {
-    return createError({
-      statusCode: 429,
-      statusMessage: "Too many requests, YouTube has temporarily blocked the current IP.",
-    });
-  }
-
-  return createError({
-    statusCode: 500,
-    statusMessage: e instanceof Error ? e.message : "Failed to fetch transcript.",
-  });
+function parseVideoId(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const id = value.trim();
+  return VIDEO_ID_PATTERN.test(id) ? id : null;
 }
 
 function first(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0]?.trim() ?? "";
   return typeof value === "string" ? value.trim() : "";
-}
-
-function parseVideoId(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const id = value.trim();
-  return VIDEO_ID_PATTERN.test(id) ? id : null;
 }

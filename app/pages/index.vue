@@ -7,18 +7,17 @@ const { locale, locales, setLocale, t } = useI18n();
 const toast = useToast();
 
 type Segment = { text: string; duration: number; offset: number; lang: string };
+type HistoryItem = {
+  input: string;
+  lang: string;
+  timestamp: number;
+  transcript: Segment[];
+};
+
 type ApiError = {
   statusMessage?: string;
   message?: string;
   data?: { statusMessage?: string; message?: string; availableLangs?: string[] };
-};
-
-type HistoryItem = {
-  input: string;
-  lang: string;
-  title?: string;
-  timestamp: number;
-  transcript: Segment[];
 };
 
 useSeoMeta({ title: t("title"), description: t("description") });
@@ -33,7 +32,6 @@ const history = ref<HistoryItem[]>([]);
 
 const segments = computed(() => transcript.value ?? []);
 const hasResult = computed(() => segments.value.length > 0);
-
 const apiInput = computed(() => input.value.trim() || TEST_VIDEO_URL);
 const apiLang = computed(() => (lang.value === "auto" ? "auto" : lang.value));
 
@@ -56,6 +54,16 @@ const statusLabel = computed(() => {
   if (hasResult.value) return t("status.success");
   return t("status.idle");
 });
+
+const apiQuery = computed(() => {
+  const params = new URLSearchParams({ input: apiInput.value });
+  if (lang.value && lang.value !== "auto") params.set("lang", lang.value);
+  return params.toString();
+});
+
+const curlCommand = computed(
+  () => `curl "${window.location.origin}/api/transcript?${apiQuery.value}"`,
+);
 
 const langOptions = [
   { label: "Auto", value: "auto" },
@@ -81,80 +89,7 @@ const langOptions = [
   { label: "ไทย", value: "th" },
 ];
 
-const apiQuery = computed(() => {
-  const params = new URLSearchParams({ input: apiInput.value });
-  if (lang.value && lang.value !== "auto") params.set("lang", lang.value);
-  return params.toString();
-});
-
-const curlCommand = computed(
-  () => `curl "${window.location.origin}/api/transcript?${apiQuery.value}"`,
-);
-
-function loadHistory() {
-  if (import.meta.client) {
-    const saved = localStorage.getItem(HISTORY_KEY);
-    if (saved) {
-      try {
-        history.value = JSON.parse(saved);
-      } catch {
-        history.value = [];
-      }
-    }
-  }
-}
-
-function saveHistory() {
-  if (import.meta.client) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value));
-  }
-}
-
-function addToHistory(item: Omit<HistoryItem, "timestamp">) {
-  const existsIndex = history.value.findIndex(
-    (h) => h.input === item.input && h.lang === item.lang,
-  );
-  if (existsIndex !== -1) {
-    history.value.splice(existsIndex, 1);
-  }
-  history.value.unshift({ ...item, timestamp: Date.now() });
-  if (history.value.length > MAX_HISTORY) {
-    history.value = history.value.slice(0, MAX_HISTORY);
-  }
-  saveHistory();
-}
-
-function removeFromHistory(index: number) {
-  history.value.splice(index, 1);
-  saveHistory();
-}
-
-function clearHistory() {
-  history.value = [];
-  saveHistory();
-}
-
-function loadHistoryItem(item: HistoryItem) {
-  input.value = item.input;
-  lang.value = item.lang;
-  transcript.value = item.transcript;
-  error.value = "";
-  availableLangs.value = [];
-}
-
-function formatHistoryTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  if (isToday) {
-    return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-  }
-  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-}
-
-onMounted(() => {
-  loadHistory();
-});
+onMounted(() => loadHistory());
 
 async function fetchTranscript() {
   const inputValue = input.value.trim();
@@ -190,15 +125,8 @@ function useTestVideo() {
   fetchTranscript();
 }
 
-function copyText(text: string) {
-  navigator.clipboard.writeText(text).then(
-    () => toast.add({ title: t("toast.copied"), color: "success", icon: "i-lucide-check" }),
-    () => toast.add({ title: t("toast.copyFailed"), color: "error", icon: "i-lucide-x" }),
-  );
-}
-
 function copyTranscript() {
-  copyText(plainText.value);
+  copyToClipboard(plainText.value);
 }
 
 function copyTimeline() {
@@ -206,27 +134,11 @@ function copyTimeline() {
     .map((s) => `${formatTime(s.offset)} ${s.text.trim()}`)
     .filter(Boolean)
     .join("\n");
-  copyText(timeline);
+  copyToClipboard(timeline);
 }
 
-function formatSrtTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
-  return (
-    [h, m, s].map((n) => String(n).padStart(2, "0")).join(":") + "," + String(ms).padStart(3, "0")
-  );
-}
-
-function generateSrt(): string {
-  return segments.value
-    .map((s, i) => {
-      const start = formatSrtTime(s.offset);
-      const end = formatSrtTime(s.offset + s.duration);
-      return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
-    })
-    .join("\n");
+function copyCurl() {
+  copyToClipboard(curlCommand.value);
 }
 
 function downloadSrt() {
@@ -243,8 +155,32 @@ function downloadSrt() {
   toast.add({ title: t("toast.srtDownloaded"), color: "success", icon: "i-lucide-check" });
 }
 
-function copyCurl() {
-  copyText(curlCommand.value);
+function loadHistoryItem(item: HistoryItem) {
+  input.value = item.input;
+  lang.value = item.lang;
+  transcript.value = item.transcript;
+  error.value = "";
+  availableLangs.value = [];
+}
+
+function removeFromHistory(index: number) {
+  history.value.splice(index, 1);
+  saveHistory();
+}
+
+function clearHistory() {
+  history.value = [];
+  saveHistory();
+}
+
+function formatHistoryTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) {
+    return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  }
+  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 }
 
 function formatTime(seconds: number): string {
@@ -258,8 +194,58 @@ function formatTime(seconds: number): string {
     : [m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-function extractError(e: unknown): string {
-  const err = e as ApiError | null;
+function generateSrt(): string {
+  return segments.value
+    .map((s, i) => {
+      const start = formatSrtTime(s.offset);
+      const end = formatSrtTime(s.offset + s.duration);
+      return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
+    })
+    .join("\n");
+}
+
+function loadHistory() {
+  if (import.meta.client) {
+    const saved = localStorage.getItem(HISTORY_KEY);
+    if (saved) {
+      try {
+        history.value = JSON.parse(saved);
+      } catch {
+        history.value = [];
+      }
+    }
+  }
+}
+
+function saveHistory() {
+  if (import.meta.client) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value));
+  }
+}
+
+function addToHistory(item: Omit<HistoryItem, "timestamp">) {
+  const existsIndex = history.value.findIndex(
+    (h) => h.input === item.input && h.lang === item.lang,
+  );
+  if (existsIndex !== -1) {
+    history.value.splice(existsIndex, 1);
+  }
+  history.value.unshift({ ...item, timestamp: Date.now() });
+  if (history.value.length > MAX_HISTORY) {
+    history.value = history.value.slice(0, MAX_HISTORY);
+  }
+  saveHistory();
+}
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).then(
+    () => toast.add({ title: t("toast.copied"), color: "success", icon: "i-lucide-check" }),
+    () => toast.add({ title: t("toast.copyFailed"), color: "error", icon: "i-lucide-x" }),
+  );
+}
+
+function extractError(error: unknown): string {
+  const err = error as ApiError | null;
   availableLangs.value = err?.data?.availableLangs ?? [];
   return (
     err?.data?.statusMessage ||
@@ -267,6 +253,16 @@ function extractError(e: unknown): string {
     err?.statusMessage ||
     err?.message ||
     t("error.fetchFailed")
+  );
+}
+
+function formatSrtTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return (
+    [h, m, s].map((n) => String(n).padStart(2, "0")).join(":") + "," + String(ms).padStart(3, "0")
   );
 }
 </script>
