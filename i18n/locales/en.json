@@ -1,9 +1,9 @@
 {
   "title": "YouTube Transcript Extractor",
-  "description": "Paste a YouTube URL or VideoId to quickly extract subtitles, with GET API support.",
+  "description": "Paste a YouTube URL to extract subtitles instantly. API support included.",
   "status": {
-    "pending": "Loading",
-    "success": "Loaded",
+    "pending": "Extracting...",
+    "success": "Done",
     "idle": "Waiting"
   },
   "error": {
@@ -11,29 +11,28 @@
     "fetchFailed": "Failed to fetch transcript, please try again later."
   },
   "button": {
-    "useTestVideo": "Use Test Video",
+    "useTestVideo": "Try Example",
     "extract": "Extract",
-    "viewApi": "View API",
-    "copyAsCurl": "Copy as cURL",
-    "saveAsSrt": "Save as SRT"
+    "viewApi": "API Docs",
+    "copyAsCurl": "Copy cURL Command",
+    "saveAsSrt": "Download SRT"
   },
   "placeholder": {
     "source": "YouTube URL or VideoId",
     "lang": "Language (optional)"
   },
   "label": {
-    "source": "Source",
-    "language": "Language",
-    "apiPreview": "API Preview",
-    "segments": "segments",
-    "duration": "Duration",
+    "segmentUnit": "segments",
+    "duration": "Total Duration",
     "status": "Status",
-    "plainText": "Plain Text",
-    "input": "input",
-    "lang": "lang"
+    "plainText": "Plain Text"
+  },
+  "api": {
+    "paramInput": "input",
+    "paramLang": "lang"
   },
   "card": {
-    "transcriptFull": "Transcript",
+    "transcript": "Full Transcript",
     "apiCall": "API Call",
     "timeline": "Timeline"
   },
@@ -41,14 +40,14 @@
     "fetchFailed": "Fetch Failed",
     "availableLangs": "Available Languages"
   },
-  "hint": "Display by transcript segments, supports direct copy.",
+  "hint": "Segmented display, ready to copy.",
   "toast": {
-    "copied": "Copied to clipboard",
-    "copyFailed": "Failed to copy",
-    "srtDownloaded": "SRT file downloaded"
+    "copied": "Copied",
+    "copyFailed": "Copy failed, please try again",
+    "srtDownloaded": "SRT downloaded"
   },
   "history": {
-    "title": "History",
-    "clear": "Clear"
+    "title": "Recent",
+    "clear": "Clear All"
   }
 }

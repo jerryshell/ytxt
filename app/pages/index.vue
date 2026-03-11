@@ -434,7 +434,7 @@ function formatSrtTime(seconds: number): string {
         <div class="flex flex-wrap gap-2">
           <UBadge color="neutral" variant="soft">{{ t("label.status") }} {{ statusLabel }}</UBadge>
           <UBadge color="neutral" variant="soft"
-            >{{ segments.length }} {{ t("label.segments") }}</UBadge
+            >{{ segments.length }} {{ t("label.segmentUnit") }}</UBadge
           >
           <UBadge color="neutral" variant="soft">{{ durationLabel }}</UBadge>
           <UBadge color="neutral" variant="soft">{{ segments[0]?.lang ?? apiLang }}</UBadge>
@@ -450,7 +450,7 @@ function formatSrtTime(seconds: number): string {
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
                   <h2 class="text-base font-semibold text-highlighted">
-                    {{ t("card.transcriptFull") }}
+                    {{ t("card.transcript") }}
                   </h2>
                   <p class="truncate text-sm text-muted">{{ input }}</p>
                 </div>
@@ -513,12 +513,16 @@ function formatSrtTime(seconds: number): string {
                 </div>
 
                 <div class="rounded-xl bg-default px-4 py-3 ring ring-default">
-                  <p class="text-xs uppercase tracking-wide text-dimmed">{{ t("label.input") }}</p>
+                  <p class="text-xs uppercase tracking-wide text-dimmed">
+                    {{ t("api.paramInput") }}
+                  </p>
                   <p class="mt-1 break-all font-mono text-default">{{ apiInput }}</p>
                 </div>
 
                 <div class="rounded-xl bg-default px-4 py-3 ring ring-default">
-                  <p class="text-xs uppercase tracking-wide text-dimmed">{{ t("label.lang") }}</p>
+                  <p class="text-xs uppercase tracking-wide text-dimmed">
+                    {{ t("api.paramLang") }}
+                  </p>
                   <p class="mt-1 font-mono text-default">{{ apiLang }}</p>
                 </div>
               </div>
