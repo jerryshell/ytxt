@@ -34,7 +34,7 @@ const segments = computed(() => transcript.value ?? []);
 const hasResult = computed(() => segments.value.length > 0);
 
 const apiInput = computed(() => input.value.trim() || TEST_VIDEO_URL);
-const apiLang = computed(() => lang.value.trim() || "auto");
+const apiLang = computed(() => (lang.value === "auto" ? "auto" : lang.value));
 
 const plainText = computed(() =>
   segments.value
@@ -56,9 +56,33 @@ const statusLabel = computed(() => {
   return t("status.idle");
 });
 
+const langOptions = [
+  { label: "Auto", value: "auto" },
+  { label: "中文 (简体)", value: "zh-CN" },
+  { label: "中文 (繁體)", value: "zh-TW" },
+  { label: "English", value: "en" },
+  { label: "日本語", value: "ja" },
+  { label: "한국어", value: "ko" },
+  { label: "Deutsch", value: "de" },
+  { label: "Español", value: "es" },
+  { label: "Français", value: "fr" },
+  { label: "Italiano", value: "it" },
+  { label: "Português", value: "pt" },
+  { label: "Русский", value: "ru" },
+  { label: "العربية", value: "ar" },
+  { label: "हिन्दी", value: "hi" },
+  { label: "Bahasa Indonesia", value: "id" },
+  { label: "Türkçe", value: "tr" },
+  { label: "Tiếng Việt", value: "vi" },
+  { label: "Nederlands", value: "nl" },
+  { label: "Polski", value: "pl" },
+  { label: "Svenska", value: "sv" },
+  { label: "ไทย", value: "th" },
+];
+
 const apiQuery = computed(() => {
   const params = new URLSearchParams({ input: apiInput.value });
-  if (lang.value.trim()) params.set("lang", lang.value.trim());
+  if (lang.value && lang.value !== "auto") params.set("lang", lang.value);
   return params.toString();
 });
 
@@ -131,7 +155,7 @@ onMounted(() => {
 
 async function fetchTranscript() {
   const inputValue = input.value.trim();
-  const langValue = lang.value.trim();
+  const langValue = lang.value === "auto" ? "" : lang.value;
 
   if (!inputValue) {
     error.value = t("error.emptyInput");
@@ -159,7 +183,7 @@ async function fetchTranscript() {
 
 function useTestVideo() {
   input.value = TEST_VIDEO_URL;
-  lang.value = "en";
+  lang.value = "auto";
   fetchTranscript();
 }
 
@@ -300,15 +324,15 @@ function extractError(e: unknown): string {
           />
 
           <div class="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <UInput
+            <USelect
               v-model="lang"
+              :items="langOptions"
               color="neutral"
               icon="i-lucide-languages"
               :placeholder="t('placeholder.lang')"
               size="lg"
               variant="soft"
               class="w-full sm:w-40"
-              :ui="{ base: 'rounded-full' }"
             />
 
             <div class="flex flex-wrap justify-center gap-3">
