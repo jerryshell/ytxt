@@ -14,7 +14,8 @@
     "useTestVideo": "Use Test Video",
     "extract": "Extract",
     "viewApi": "View API",
-    "copyAsCurl": "Copy as cURL"
+    "copyAsCurl": "Copy as cURL",
+    "saveAsSrt": "Save as SRT"
   },
   "placeholder": {
     "source": "YouTube URL or VideoId",
@@ -43,6 +44,7 @@
   "hint": "Display by transcript segments, supports direct copy.",
   "toast": {
     "copied": "Copied to clipboard",
-    "copyFailed": "Failed to copy"
+    "copyFailed": "Failed to copy",
+    "srtDownloaded": "SRT file downloaded"
   }
 }

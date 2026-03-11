@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const TEST_VIDEO_URL = "UF8uR6Z6KLc";
 
-const { locale, locales, setLocale } = useI18n();
+const { locale, locales, setLocale, t } = useI18n();
 const toast = useToast();
 
 type Segment = { text: string; duration: number; offset: number; lang: string };
@@ -11,7 +11,7 @@ type ApiError = {
   data?: { statusMessage?: string; message?: string; availableLangs?: string[] };
 };
 
-useSeoMeta({ title: $t("title"), description: $t("description") });
+useSeoMeta({ title: t("title"), description: t("description") });
 
 const input = ref("");
 const lang = ref("en");
@@ -41,9 +41,9 @@ const totalDuration = computed(() => {
 const durationLabel = computed(() => (hasResult.value ? formatTime(totalDuration.value) : "--:--"));
 
 const statusLabel = computed(() => {
-  if (pending.value) return $t("status.pending");
-  if (hasResult.value) return $t("status.success");
-  return $t("status.idle");
+  if (pending.value) return t("status.pending");
+  if (hasResult.value) return t("status.success");
+  return t("status.idle");
 });
 
 const apiQuery = computed(() => {
@@ -61,7 +61,7 @@ async function fetchTranscript() {
   const langValue = lang.value.trim();
 
   if (!inputValue) {
-    error.value = $t("error.emptyInput");
+    error.value = t("error.emptyInput");
     transcript.value = null;
     availableLangs.value = [];
     return;
@@ -91,8 +91,8 @@ function useTestVideo() {
 
 function copyText(text: string) {
   navigator.clipboard.writeText(text).then(
-    () => toast.add({ title: $t("toast.copied"), color: "success", icon: "i-lucide-check" }),
-    () => toast.add({ title: $t("toast.copyFailed"), color: "error", icon: "i-lucide-x" }),
+    () => toast.add({ title: t("toast.copied"), color: "success", icon: "i-lucide-check" }),
+    () => toast.add({ title: t("toast.copyFailed"), color: "error", icon: "i-lucide-x" }),
   );
 }
 
@@ -106,6 +106,40 @@ function copyTimeline() {
     .filter(Boolean)
     .join("\n");
   copyText(timeline);
+}
+
+function formatSrtTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return (
+    [h, m, s].map((n) => String(n).padStart(2, "0")).join(":") + "," + String(ms).padStart(3, "0")
+  );
+}
+
+function generateSrt(): string {
+  return segments.value
+    .map((s, i) => {
+      const start = formatSrtTime(s.offset);
+      const end = formatSrtTime(s.offset + s.duration);
+      return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
+    })
+    .join("\n");
+}
+
+function downloadSrt() {
+  const srtContent = generateSrt();
+  const blob = new Blob([srtContent], { type: "text/srt;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${apiInput.value}.srt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast.add({ title: t("toast.srtDownloaded"), color: "success", icon: "i-lucide-check" });
 }
 
 function copyCurl() {
@@ -131,7 +165,7 @@ function extractError(e: unknown): string {
     err?.data?.message ||
     err?.statusMessage ||
     err?.message ||
-    $t("error.fetchFailed")
+    t("error.fetchFailed")
   );
 }
 </script>
@@ -175,7 +209,7 @@ function extractError(e: unknown): string {
           </h1>
 
           <p class="mx-auto max-w-2xl text-sm leading-6 text-muted sm:text-base">
-            {{ $t("description") }}
+            {{ t("description") }}
           </p>
         </div>
 
@@ -184,7 +218,7 @@ function extractError(e: unknown): string {
             v-model="input"
             color="neutral"
             icon="i-lucide-search"
-            :placeholder="$t('placeholder.source')"
+            :placeholder="t('placeholder.source')"
             size="xl"
             variant="outline"
             class="w-full"
@@ -196,7 +230,7 @@ function extractError(e: unknown): string {
               v-model="lang"
               color="neutral"
               icon="i-lucide-languages"
-              :placeholder="$t('placeholder.lang')"
+              :placeholder="t('placeholder.lang')"
               size="lg"
               variant="soft"
               class="w-full sm:w-40"
@@ -210,7 +244,7 @@ function extractError(e: unknown): string {
                 :loading="pending"
                 trailing-icon="i-lucide-arrow-right"
               >
-                {{ $t("button.extract") }}
+                {{ t("button.extract") }}
               </UButton>
 
               <UButton
@@ -220,7 +254,7 @@ function extractError(e: unknown): string {
                 trailing-icon="i-lucide-flask-conical"
                 @click.prevent="useTestVideo"
               >
-                {{ $t("button.useTestVideo") }}
+                {{ t("button.useTestVideo") }}
               </UButton>
 
               <UButton
@@ -230,7 +264,7 @@ function extractError(e: unknown): string {
                 :href="`/api/transcript?${apiQuery}`"
                 target="_blank"
               >
-                {{ $t("button.viewApi") }}
+                {{ t("button.viewApi") }}
               </UButton>
             </div>
           </div>
@@ -239,7 +273,7 @@ function extractError(e: unknown): string {
             v-if="error"
             color="error"
             variant="soft"
-            :title="$t('alert.fetchFailed')"
+            :title="t('alert.fetchFailed')"
             :description="error"
           />
 
@@ -247,7 +281,7 @@ function extractError(e: unknown): string {
             v-if="availableLangs.length"
             color="warning"
             variant="soft"
-            :title="$t('alert.availableLangs')"
+            :title="t('alert.availableLangs')"
             :description="availableLangs.join(', ')"
           />
         </form>
@@ -255,9 +289,9 @@ function extractError(e: unknown): string {
 
       <section v-if="hasResult" class="mx-auto w-full max-w-5xl space-y-4 pb-8">
         <div class="flex flex-wrap gap-2">
-          <UBadge color="neutral" variant="soft">{{ $t("label.status") }} {{ statusLabel }}</UBadge>
+          <UBadge color="neutral" variant="soft">{{ t("label.status") }} {{ statusLabel }}</UBadge>
           <UBadge color="neutral" variant="soft"
-            >{{ segments.length }} {{ $t("label.segments") }}</UBadge
+            >{{ segments.length }} {{ t("label.segments") }}</UBadge
           >
           <UBadge color="neutral" variant="soft">{{ durationLabel }}</UBadge>
           <UBadge color="neutral" variant="soft">{{ segments[0]?.lang ?? apiLang }}</UBadge>
@@ -273,14 +307,14 @@ function extractError(e: unknown): string {
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
                   <h2 class="text-base font-semibold text-highlighted">
-                    {{ $t("card.transcriptFull") }}
+                    {{ t("card.transcriptFull") }}
                   </h2>
                   <p class="truncate text-sm text-muted">{{ input }}</p>
                 </div>
 
                 <div class="flex items-center gap-2">
                   <UBadge color="neutral" variant="soft" class="shrink-0">
-                    {{ $t("label.plainText") }}
+                    {{ t("label.plainText") }}
                   </UBadge>
 
                   <UButton
@@ -295,7 +329,7 @@ function extractError(e: unknown): string {
             </template>
 
             <div class="flex flex-1 flex-col gap-3">
-              <p class="text-xs leading-5 text-muted">{{ $t("hint") }}</p>
+              <p class="text-xs leading-5 text-muted">{{ t("hint") }}</p>
 
               <UTextarea
                 :model-value="plainText"
@@ -317,14 +351,14 @@ function extractError(e: unknown): string {
             <UCard variant="subtle">
               <template #header>
                 <div class="flex items-center justify-between gap-3">
-                  <h2 class="text-base font-semibold text-highlighted">{{ $t("card.apiCall") }}</h2>
+                  <h2 class="text-base font-semibold text-highlighted">{{ t("card.apiCall") }}</h2>
 
                   <UButton
                     color="neutral"
                     variant="ghost"
                     size="sm"
                     icon="i-lucide-terminal"
-                    :label="$t('button.copyAsCurl')"
+                    :label="t('button.copyAsCurl')"
                     @click="copyCurl"
                   />
                 </div>
@@ -336,12 +370,12 @@ function extractError(e: unknown): string {
                 </div>
 
                 <div class="rounded-xl bg-default px-4 py-3 ring ring-default">
-                  <p class="text-xs uppercase tracking-wide text-dimmed">{{ $t("label.input") }}</p>
+                  <p class="text-xs uppercase tracking-wide text-dimmed">{{ t("label.input") }}</p>
                   <p class="mt-1 break-all font-mono text-default">{{ apiInput }}</p>
                 </div>
 
                 <div class="rounded-xl bg-default px-4 py-3 ring ring-default">
-                  <p class="text-xs uppercase tracking-wide text-dimmed">{{ $t("label.lang") }}</p>
+                  <p class="text-xs uppercase tracking-wide text-dimmed">{{ t("label.lang") }}</p>
                   <p class="mt-1 font-mono text-default">{{ apiLang }}</p>
                 </div>
               </div>
@@ -351,16 +385,27 @@ function extractError(e: unknown): string {
               <template #header>
                 <div class="flex items-center justify-between gap-3">
                   <h2 class="text-base font-semibold text-highlighted">
-                    {{ $t("card.timeline") }}
+                    {{ t("card.timeline") }}
                   </h2>
 
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    icon="i-lucide-copy"
-                    @click="copyTimeline"
-                  />
+                  <div class="flex items-center gap-2">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      icon="i-lucide-download"
+                      :label="t('button.saveAsSrt')"
+                      @click="downloadSrt"
+                    />
+
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      icon="i-lucide-copy"
+                      @click="copyTimeline"
+                    />
+                  </div>
                 </div>
               </template>
 

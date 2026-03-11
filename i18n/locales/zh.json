@@ -14,7 +14,8 @@
     "useTestVideo": "使用测试视频",
     "extract": "提取字幕",
     "viewApi": "查看 API",
-    "copyAsCurl": "复制为 cURL"
+    "copyAsCurl": "复制为 cURL",
+    "saveAsSrt": "保存为 SRT"
   },
   "placeholder": {
     "source": "YouTube 链接或 VideoId",
@@ -43,6 +44,7 @@
   "hint": "按字幕段落换行展示，支持直接选中复制。",
   "toast": {
     "copied": "已复制到剪贴板",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "srtDownloaded": "SRT 文件已下载"
   }
 }
