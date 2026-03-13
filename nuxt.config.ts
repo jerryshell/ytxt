@@ -4,19 +4,15 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ["@nuxt/ui", "@nuxtjs/i18n"],
   css: ["~/assets/css/main.css"],
-  colorMode: {
-    preference: "system",
-    fallback: "light",
-  },
   ui: {
     fonts: false,
   },
   i18n: {
-    defaultLocale: "zh",
+    defaultLocale: "en",
+    strategy: "no_prefix",
     locales: [
       { code: "en", name: "English", file: "en.json" },
       { code: "zh", name: "中文", file: "zh.json" },
     ],
-    strategy: "no_prefix",
   },
 });
