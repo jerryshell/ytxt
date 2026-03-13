@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.97",
-    "oxfmt": "^0.39.0",
-    "oxlint": "^1.54.0"
+    "oxfmt": "^0.40.0",
+    "oxlint": "^1.55.0"
   }
 }
