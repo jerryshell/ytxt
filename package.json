@@ -23,8 +23,8 @@
     "youtube-transcript-plus": "^1.2.0"
   },
   "devDependencies": {
-    "@iconify-json/lucide": "^1.2.97",
-    "oxfmt": "^0.40.0",
-    "oxlint": "^1.55.0"
+    "@iconify-json/lucide": "^1.2.98",
+    "oxfmt": "^0.41.0",
+    "oxlint": "^1.56.0"
   }
 }
