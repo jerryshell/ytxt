@@ -1,69 +1,9 @@
 <script setup lang="ts">
+import type { TranscriptSegment } from "youtube-transcript-plus";
+
 const TEST_VIDEO_URL = "UF8uR6Z6KLc";
 const HISTORY_KEY = "ytxt_history";
 const MAX_HISTORY = 10;
-
-const { locale, locales, setLocale, t } = useI18n();
-const toast = useToast();
-
-type Segment = { text: string; duration: number; offset: number; lang: string };
-type HistoryItem = {
-  input: string;
-  lang: string;
-  timestamp: number;
-  transcript: Segment[];
-};
-
-type ApiError = {
-  statusMessage?: string;
-  message?: string;
-  data?: { statusMessage?: string; message?: string; availableLangs?: string[] };
-};
-
-useSeoMeta({ title: t("title"), description: t("description") });
-
-const input = ref("");
-const lang = ref("en");
-const pending = ref(false);
-const error = ref("");
-const availableLangs = ref<string[]>([]);
-const transcript = ref<Segment[] | null>(null);
-const history = ref<HistoryItem[]>([]);
-
-const segments = computed(() => transcript.value ?? []);
-const hasResult = computed(() => segments.value.length > 0);
-const apiInput = computed(() => input.value.trim() || TEST_VIDEO_URL);
-const apiLang = computed(() => (lang.value === "auto" ? "auto" : lang.value));
-
-const plainText = computed(() =>
-  segments.value
-    .map((s) => s.text.trim())
-    .filter(Boolean)
-    .join("\n"),
-);
-
-const totalDuration = computed(() => {
-  const last = segments.value.at(-1);
-  return last ? Number((last.offset + last.duration).toFixed(2)) : 0;
-});
-
-const durationLabel = computed(() => (hasResult.value ? formatTime(totalDuration.value) : "--:--"));
-
-const statusLabel = computed(() => {
-  if (pending.value) return t("status.pending");
-  if (hasResult.value) return t("status.success");
-  return t("status.idle");
-});
-
-const apiQuery = computed(() => {
-  const params = new URLSearchParams({ input: apiInput.value });
-  if (lang.value && lang.value !== "auto") params.set("lang", lang.value);
-  return params.toString();
-});
-
-const curlCommand = computed(
-  () => `curl "${window.location.origin}/api/transcript?${apiQuery.value}"`,
-);
 
 const langOptions = [
   { label: "Auto", value: "auto" },
@@ -89,11 +29,76 @@ const langOptions = [
   { label: "ไทย", value: "th" },
 ];
 
-onMounted(() => loadHistory());
+const { locale, locales, setLocale, t } = useI18n();
+const requestUrl = useRequestURL();
+const toast = useToast();
+
+type Segment = TranscriptSegment;
+type HistoryItem = {
+  input: string;
+  lang: string;
+  timestamp: number;
+  transcript: Segment[];
+};
+
+type ApiError = {
+  statusMessage?: string;
+  message?: string;
+  data?: { statusMessage?: string; message?: string; availableLangs?: string[] };
+};
+
+useSeoMeta({
+  title: () => t("title"),
+  description: () => t("description"),
+});
+
+const input = ref("");
+const lang = ref("en");
+const pending = ref(false);
+const error = ref("");
+const availableLangs = ref<string[]>([]);
+const transcript = ref<Segment[] | null>(null);
+const history = ref<HistoryItem[]>([]);
+
+const segments = computed(() => transcript.value ?? []);
+const hasResult = computed(() => segments.value.length > 0);
+const requestedLang = computed(() => (lang.value === "auto" ? undefined : lang.value));
+const apiInput = computed(() => input.value.trim() || TEST_VIDEO_URL);
+const apiLang = computed(() => requestedLang.value ?? "auto");
+const historyDateLocale = computed(() => (locale.value === "zh" ? "zh-CN" : "en-US"));
+const plainText = computed(() => toPlainText(segments.value));
+const timelineText = computed(() => toTimelineText(segments.value));
+const downloadName = computed(() => sanitizeFileName(apiInput.value));
+
+const totalDuration = computed(() => {
+  const last = segments.value.at(-1);
+  return last ? Number((last.offset + last.duration).toFixed(2)) : 0;
+});
+
+const durationLabel = computed(() => (hasResult.value ? formatTime(totalDuration.value) : "--:--"));
+
+const statusLabel = computed(() => {
+  if (pending.value) return t("status.pending");
+  if (hasResult.value) return t("status.success");
+  return t("status.idle");
+});
+
+const apiQuery = computed(() => {
+  const params = new URLSearchParams({ input: apiInput.value });
+  if (requestedLang.value) {
+    params.set("lang", requestedLang.value);
+  }
+  return params.toString();
+});
+
+const apiPath = computed(() => `/api/transcript?${apiQuery.value}`);
+const apiUrl = computed(() => new URL(apiPath.value, requestUrl.origin).toString());
+const curlCommand = computed(() => `curl "${apiUrl.value}"`);
+
+onMounted(loadHistory);
 
 async function fetchTranscript() {
   const inputValue = input.value.trim();
-  const langValue = lang.value === "auto" ? "" : lang.value;
 
   if (!inputValue) {
     error.value = t("error.emptyInput");
@@ -107,13 +112,19 @@ async function fetchTranscript() {
   availableLangs.value = [];
 
   try {
-    transcript.value = await $fetch<Segment[]>("/api/transcript", {
-      query: { input: inputValue, ...(langValue ? { lang: langValue } : {}) },
+    const result = await $fetch<Segment[]>("/api/transcript", {
+      query: { input: inputValue, ...(requestedLang.value ? { lang: requestedLang.value } : {}) },
     });
-    addToHistory({ input: inputValue, lang: langValue || "auto", transcript: transcript.value });
-  } catch (e) {
+
+    transcript.value = result;
+    addToHistory({
+      input: inputValue,
+      lang: requestedLang.value ?? "auto",
+      transcript: result,
+    });
+  } catch (caughtError) {
     transcript.value = null;
-    error.value = extractError(e);
+    error.value = extractError(caughtError);
   } finally {
     pending.value = false;
   }
@@ -122,7 +133,7 @@ async function fetchTranscript() {
 function useTestVideo() {
   input.value = TEST_VIDEO_URL;
   lang.value = "en";
-  fetchTranscript();
+  void fetchTranscript();
 }
 
 function copyTranscript() {
@@ -130,11 +141,7 @@ function copyTranscript() {
 }
 
 function copyTimeline() {
-  const timeline = segments.value
-    .map((s) => `${formatTime(s.offset)} ${s.text.trim()}`)
-    .filter(Boolean)
-    .join("\n");
-  copyToClipboard(timeline);
+  copyToClipboard(timelineText.value);
 }
 
 function copyCurl() {
@@ -142,16 +149,7 @@ function copyCurl() {
 }
 
 function downloadSrt() {
-  const srtContent = generateSrt();
-  const blob = new Blob([srtContent], { type: "text/srt;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${apiInput.value}.srt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  downloadTextFile(`${downloadName.value}.srt`, toSrt(segments.value), "text/srt;charset=utf-8");
   toast.add({ title: t("toast.srtDownloaded"), color: "success", icon: "i-lucide-check" });
 }
 
@@ -173,97 +171,159 @@ function clearHistory() {
   saveHistory();
 }
 
-function formatHistoryTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  if (isToday) {
-    return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-  }
-  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-}
-
-function formatTime(seconds: number): string {
-  const total = Math.max(0, Math.floor(seconds));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-
-  return h > 0
-    ? [h, m, s].map((n) => String(n).padStart(2, "0")).join(":")
-    : [m, s].map((n) => String(n).padStart(2, "0")).join(":");
-}
-
-function generateSrt(): string {
-  return segments.value
-    .map((s, i) => {
-      const start = formatSrtTime(s.offset);
-      const end = formatSrtTime(s.offset + s.duration);
-      return `${i + 1}\n${start} --> ${end}\n${s.text.trim()}\n`;
-    })
-    .join("\n");
-}
-
 function loadHistory() {
-  if (import.meta.client) {
-    const saved = localStorage.getItem(HISTORY_KEY);
-    if (saved) {
-      try {
-        history.value = JSON.parse(saved);
-      } catch {
-        history.value = [];
-      }
-    }
-  }
-}
+  const saved = localStorage.getItem(HISTORY_KEY);
 
-function saveHistory() {
-  if (import.meta.client) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value));
+  if (!saved) {
+    return;
+  }
+
+  try {
+    history.value = JSON.parse(saved);
+  } catch {
+    history.value = [];
   }
 }
 
 function addToHistory(item: Omit<HistoryItem, "timestamp">) {
-  const existsIndex = history.value.findIndex(
-    (h) => h.input === item.input && h.lang === item.lang,
+  const existingIndex = history.value.findIndex(
+    (historyItem) => historyItem.input === item.input && historyItem.lang === item.lang,
   );
-  if (existsIndex !== -1) {
-    history.value.splice(existsIndex, 1);
+
+  if (existingIndex !== -1) {
+    history.value.splice(existingIndex, 1);
   }
+
   history.value.unshift({ ...item, timestamp: Date.now() });
+
   if (history.value.length > MAX_HISTORY) {
     history.value = history.value.slice(0, MAX_HISTORY);
   }
+
   saveHistory();
 }
 
+function saveHistory() {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.value));
+}
+
 function copyToClipboard(text: string) {
+  if (!text) {
+    return;
+  }
+
   navigator.clipboard.writeText(text).then(
     () => toast.add({ title: t("toast.copied"), color: "success", icon: "i-lucide-check" }),
     () => toast.add({ title: t("toast.copyFailed"), color: "error", icon: "i-lucide-x" }),
   );
 }
 
+function downloadTextFile(fileName: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function extractError(error: unknown): string {
-  const err = error as ApiError | null;
-  availableLangs.value = err?.data?.availableLangs ?? [];
+  const apiError = error as ApiError | null;
+  availableLangs.value = apiError?.data?.availableLangs ?? [];
+
   return (
-    err?.data?.statusMessage ||
-    err?.data?.message ||
-    err?.statusMessage ||
-    err?.message ||
+    apiError?.data?.statusMessage ||
+    apiError?.data?.message ||
+    apiError?.statusMessage ||
+    apiError?.message ||
     t("error.fetchFailed")
   );
 }
 
+function formatHistoryTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString(historyDateLocale.value, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return date.toLocaleDateString(historyDateLocale.value, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatTime(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  return hours > 0
+    ? [hours, minutes, secs].map((value) => String(value).padStart(2, "0")).join(":")
+    : [minutes, secs].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function toPlainText(segments: Segment[]): string {
+  return segments
+    .map((segment) => segment.text.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function toTimelineText(segments: Segment[]): string {
+  return segments
+    .map((segment) => {
+      const text = segment.text.trim();
+      return text ? `${formatTime(segment.offset)} ${text}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function toSrt(segments: Segment[]): string {
+  return segments
+    .map((segment, index) => {
+      const start = formatSrtTime(segment.offset);
+      const end = formatSrtTime(segment.offset + segment.duration);
+      return `${index + 1}\n${start} --> ${end}\n${segment.text.trim()}\n`;
+    })
+    .join("\n");
+}
+
 function formatSrtTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const milliseconds = Math.round((seconds % 1) * 1000);
+
   return (
-    [h, m, s].map((n) => String(n).padStart(2, "0")).join(":") + "," + String(ms).padStart(3, "0")
+    [hours, minutes, secs].map((value) => String(value).padStart(2, "0")).join(":") +
+    "," +
+    String(milliseconds).padStart(3, "0")
   );
+}
+
+function sanitizeFileName(value: string): string {
+  const safeName = value
+    .trim()
+    .replace(/[<>:"/\\|?*]/g, "-")
+    .split("")
+    .filter((char) => char.charCodeAt(0) >= 32)
+    .join("")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return safeName || TEST_VIDEO_URL;
 }
 </script>
 
@@ -355,13 +415,7 @@ function formatSrtTime(seconds: number): string {
                 {{ t("button.useTestVideo") }}
               </UButton>
 
-              <UButton
-                color="neutral"
-                size="lg"
-                variant="ghost"
-                :href="`/api/transcript?${apiQuery}`"
-                target="_blank"
-              >
+              <UButton color="neutral" size="lg" variant="ghost" :href="apiPath" target="_blank">
                 {{ t("button.viewApi") }}
               </UButton>
             </div>

@@ -9,7 +9,6 @@ import {
   fetchTranscript,
 } from "youtube-transcript-plus";
 
-const VIDEO_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/;
 const cache = new InMemoryCache(1000 * 60 * 10);
 
 type Query = {
@@ -21,30 +20,23 @@ type Query = {
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event) as Query;
-  const rawInput = first(query.input) || first(query.videoId) || first(query.url);
+  const input =
+    readQueryValue(query.input) ?? readQueryValue(query.videoId) ?? readQueryValue(query.url);
 
-  if (!rawInput) {
+  if (!input) {
     throw createError({
       statusCode: 400,
       statusMessage: "Please provide YouTube video info via input, videoId, or url.",
     });
   }
 
-  const videoId = extractVideoId(rawInput);
-
-  if (!videoId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Please enter a valid YouTube VideoId or URL.",
-    });
-  }
-
-  const lang = first(query.lang) || undefined;
+  const lang = readQueryValue(query.lang);
 
   try {
-    return await fetchTranscript(videoId, {
+    return await fetchTranscript(input, {
       ...(lang ? { lang } : {}),
       cache,
+      retries: 2,
     });
   } catch (error) {
     throw toHttpError(error);
@@ -101,44 +93,15 @@ function toHttpError(error: unknown) {
   });
 }
 
-function extractVideoId(input: string): string | null {
-  const trimmed = input.trim();
-
-  if (VIDEO_ID_PATTERN.test(trimmed)) {
-    return trimmed;
+function readQueryValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    value = value[0];
   }
 
-  try {
-    const url = new URL(trimmed);
-    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (typeof value !== "string") {
+    return undefined;
+  }
 
-    if (host === "youtu.be") {
-      return parseVideoId(url.pathname.split("/").filter(Boolean)[0]);
-    }
-
-    if (host === "youtube.com" || host.endsWith(".youtube.com")) {
-      const vParam = parseVideoId(url.searchParams.get("v"));
-      if (vParam) return vParam;
-
-      const parts = url.pathname.split("/").filter(Boolean);
-      const type = parts[0];
-      const id = parts[1];
-      if (type && id && ["embed", "live", "shorts", "v"].includes(type)) {
-        return parseVideoId(id);
-      }
-    }
-  } catch {}
-
-  return null;
-}
-
-function parseVideoId(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const id = value.trim();
-  return VIDEO_ID_PATTERN.test(id) ? id : null;
-}
-
-function first(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) return value[0]?.trim() ?? "";
-  return typeof value === "string" ? value.trim() : "";
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
