@@ -4,6 +4,8 @@ import type { TranscriptSegment } from "youtube-transcript-plus";
 const TEST_VIDEO_URL = "UF8uR6Z6KLc";
 const HISTORY_KEY = "ytxt_history";
 const MAX_HISTORY = 10;
+const DURATION_PRECISION = 2;
+const MS_PER_SEC = 1000;
 
 const langOptions = [
   { label: "Auto", value: "auto" },
@@ -72,7 +74,7 @@ const downloadName = computed(() => sanitizeFileName(apiInput.value));
 
 const totalDuration = computed(() => {
   const last = segments.value.at(-1);
-  return last ? Number((last.offset + last.duration).toFixed(2)) : 0;
+  return last ? Number((last.offset + last.duration).toFixed(DURATION_PRECISION)) : 0;
 });
 
 const durationLabel = computed(() => (hasResult.value ? formatTime(totalDuration.value) : "--:--"));
@@ -97,7 +99,12 @@ const curlCommand = computed(() => `curl "${apiUrl.value}"`);
 
 onMounted(loadHistory);
 
+let fetchController: AbortController | null = null;
+
 async function fetchTranscript() {
+  fetchController?.abort();
+  fetchController = new AbortController();
+
   const inputValue = input.value.trim();
 
   if (!inputValue) {
@@ -114,6 +121,7 @@ async function fetchTranscript() {
   try {
     const result = await $fetch<Segment[]>("/api/transcript", {
       query: { input: inputValue, ...(requestedLang.value ? { lang: requestedLang.value } : {}) },
+      signal: fetchController.signal,
     });
 
     transcript.value = result;
@@ -122,11 +130,16 @@ async function fetchTranscript() {
       lang: requestedLang.value ?? "auto",
       transcript: result,
     });
-  } catch (caughtError) {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return;
+    }
     transcript.value = null;
-    error.value = extractError(caughtError);
+    error.value = extractError(err);
   } finally {
-    pending.value = false;
+    if (!fetchController.signal.aborted) {
+      pending.value = false;
+    }
   }
 }
 
@@ -171,6 +184,21 @@ function clearHistory() {
   saveHistory();
 }
 
+function isValidHistoryItem(item: unknown): item is HistoryItem {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "input" in item &&
+    typeof (item as HistoryItem).input === "string" &&
+    "lang" in item &&
+    typeof (item as HistoryItem).lang === "string" &&
+    "timestamp" in item &&
+    typeof (item as HistoryItem).timestamp === "number" &&
+    "transcript" in item &&
+    Array.isArray((item as HistoryItem).transcript)
+  );
+}
+
 function loadHistory() {
   const saved = localStorage.getItem(HISTORY_KEY);
 
@@ -179,7 +207,12 @@ function loadHistory() {
   }
 
   try {
-    history.value = JSON.parse(saved);
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed)) {
+      history.value = parsed.filter(isValidHistoryItem);
+    } else {
+      history.value = [];
+    }
   } catch {
     history.value = [];
   }
@@ -232,16 +265,24 @@ function downloadTextFile(fileName: string, content: string, type: string) {
 }
 
 function extractError(error: unknown): string {
-  const apiError = error as ApiError | null;
-  availableLangs.value = apiError?.data?.availableLangs ?? [];
+  if (error && typeof error === "object") {
+    const err = error as Record<string, unknown>;
+    const data = err.data as Record<string, unknown> | undefined;
 
-  return (
-    apiError?.data?.statusMessage ||
-    apiError?.data?.message ||
-    apiError?.statusMessage ||
-    apiError?.message ||
-    t("error.fetchFailed")
-  );
+    if (data?.availableLangs && Array.isArray(data.availableLangs)) {
+      availableLangs.value = data.availableLangs as string[];
+    }
+
+    const msg =
+      (data?.statusMessage as string | undefined) ||
+      (data?.message as string | undefined) ||
+      (err.statusMessage as string | undefined) ||
+      (err.message as string | undefined);
+
+    if (msg) return msg;
+  }
+
+  return t("error.fetchFailed");
 }
 
 function formatHistoryTime(timestamp: number): string {
@@ -261,12 +302,17 @@ function formatHistoryTime(timestamp: number): string {
   });
 }
 
-function formatTime(seconds: number): string {
+function formatTimeComponents(seconds: number) {
   const total = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
+  return {
+    hours: Math.floor(total / 3600),
+    minutes: Math.floor((total % 3600) / 60),
+    secs: total % 60,
+  };
+}
 
+function formatTime(seconds: number): string {
+  const { hours, minutes, secs } = formatTimeComponents(seconds);
   return hours > 0
     ? [hours, minutes, secs].map((value) => String(value).padStart(2, "0")).join(":")
     : [minutes, secs].map((value) => String(value).padStart(2, "0")).join(":");
@@ -300,10 +346,8 @@ function toSrt(segments: Segment[]): string {
 }
 
 function formatSrtTime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const milliseconds = Math.round((seconds % 1) * 1000);
+  const { hours, minutes, secs } = formatTimeComponents(seconds);
+  const milliseconds = Math.round((seconds % 1) * MS_PER_SEC);
 
   return (
     [hours, minutes, secs].map((value) => String(value).padStart(2, "0")).join(":") +
