@@ -9,7 +9,8 @@ import {
   fetchTranscript,
 } from "youtube-transcript-plus";
 
-const cache = new InMemoryCache(1000 * 60 * 10);
+const CACHE_TTL_MS = 1000 * 60 * 10;
+const cache = new InMemoryCache(CACHE_TTL_MS);
 
 type Query = {
   input?: string | string[];
